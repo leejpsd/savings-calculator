@@ -1,20 +1,39 @@
-import { Suspense } from 'react';
-import { Border, colors, ListRow, NavigationBar, SelectBottomSheet, Spacing, Tab, TextField } from 'tosslib';
+import { Suspense, useState } from 'react';
+import { Border, ListRow, NavigationBar, SelectBottomSheet, Spacing, Tab, TextField } from 'tosslib';
+import { useSavingsCalculatorForm } from 'hooks/useSavingsCalculatorForm';
 import { useSavingsProducts } from 'hooks/useSavingsProducts';
+import { useProductSelection } from 'hooks/useProductSelection';
 import { ErrorBoundary } from 'components/ErrorBoundary';
-import { formatCurrency } from 'utils/utils';
+import { SavingsProductRow } from 'components/SavingsProductRow';
+import type { SavingsProduct } from 'types/product';
 
 export function SavingsCalculatorPage() {
+  const { monthly, term, goalDisplay, monthlyDisplay, onGoalChange, onMonthlyChange, onTermChange } =
+    useSavingsCalculatorForm();
+  const [activeTab, setActiveTab] = useState<'products' | 'results'>('products');
+
   return (
     <>
       <NavigationBar title="적금 계산기" />
       <Spacing size={16} />
 
-      <TextField label="목표 금액" placeholder="목표 금액을 입력하세요" suffix="원" />
+      <TextField
+        label="목표 금액"
+        placeholder="목표 금액을 입력하세요"
+        suffix="원"
+        value={goalDisplay}
+        onChange={onGoalChange}
+      />
       <Spacing size={16} />
-      <TextField label="월 납입액" placeholder="희망 월 납입액을 입력하세요" suffix="원" />
+      <TextField
+        label="월 납입액"
+        placeholder="희망 월 납입액을 입력하세요"
+        suffix="원"
+        value={monthlyDisplay}
+        onChange={onMonthlyChange}
+      />
       <Spacing size={16} />
-      <SelectBottomSheet label="저축 기간" title="저축 기간을 선택해주세요" value={12} onChange={() => {}}>
+      <SelectBottomSheet label="저축 기간" title="저축 기간을 선택해주세요" value={term} onChange={onTermChange}>
         <SelectBottomSheet.Option value={6}>6개월</SelectBottomSheet.Option>
         <SelectBottomSheet.Option value={12}>12개월</SelectBottomSheet.Option>
         <SelectBottomSheet.Option value={24}>24개월</SelectBottomSheet.Option>
@@ -24,11 +43,11 @@ export function SavingsCalculatorPage() {
       <Border height={16} />
       <Spacing size={8} />
 
-      <Tab onChange={() => {}}>
-        <Tab.Item value="products" selected={true}>
+      <Tab onChange={v => setActiveTab(v as 'products' | 'results')}>
+        <Tab.Item value="products" selected={activeTab === 'products'}>
           적금 상품
         </Tab.Item>
-        <Tab.Item value="results" selected={false}>
+        <Tab.Item value="results" selected={activeTab === 'results'}>
           계산 결과
         </Tab.Item>
       </Tab>
@@ -39,33 +58,49 @@ export function SavingsCalculatorPage() {
         fallback={<ListRow contents={<ListRow.Texts type="1RowTypeA" top="상품 정보를 불러오지 못했습니다." />} />}
       >
         <Suspense fallback={<ListRow contents={<ListRow.Texts type="1RowTypeA" top="불러오는 중…" />} />}>
-          <ProductList />
+          <FilteredProductList activeTab={activeTab} monthly={monthly} term={term} />
         </Suspense>
       </ErrorBoundary>
     </>
   );
 }
 
-function ProductList() {
+function FilteredProductList({
+  activeTab,
+  monthly,
+  term,
+}: {
+  activeTab: 'products' | 'results';
+  monthly: number;
+  term: number;
+}) {
   const { data: products } = useSavingsProducts();
+  const { selectedId, filtered, toggleProduct } = useProductSelection(products, monthly, term);
+
+  if (activeTab === 'results') {
+    return <ListRow contents={<ListRow.Texts type="1RowTypeA" top="상품을 선택해주세요." />} />;
+  }
+
+  return <ProductList products={filtered} selectedId={selectedId} onToggleProduct={toggleProduct} />;
+}
+
+function ProductList({
+  products,
+  selectedId,
+  onToggleProduct,
+}: {
+  products: SavingsProduct[];
+  selectedId: string | null;
+  onToggleProduct: (id: string) => void;
+}) {
+  if (products.length === 0) {
+    return <ListRow contents={<ListRow.Texts type="1RowTypeA" top="조건에 맞는 적금 상품이 없습니다." />} />;
+  }
 
   return (
     <>
       {products.map(p => (
-        <ListRow
-          key={p.id}
-          contents={
-            <ListRow.Texts
-              type="3RowTypeA"
-              top={p.name}
-              topProps={{ fontSize: 16, fontWeight: 'bold', color: colors.grey900 }}
-              middle={`연 이자율: ${p.annualRate}%`}
-              middleProps={{ fontSize: 14, color: colors.blue600, fontWeight: 'medium' }}
-              bottom={`${formatCurrency(p.minMonthlyAmount)}원 ~ ${formatCurrency(p.maxMonthlyAmount)}원 | ${p.availableTerms}개월`}
-              bottomProps={{ fontSize: 13, color: colors.grey600 }}
-            />
-          }
-        />
+        <SavingsProductRow key={p.id} product={p} isSelected={selectedId === p.id} onToggleProduct={onToggleProduct} />
       ))}
     </>
   );
