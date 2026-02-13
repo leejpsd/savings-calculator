@@ -1,14 +1,11 @@
 import { Suspense, useState } from 'react';
 import { Border, ListRow, NavigationBar, SelectBottomSheet, Spacing, Tab, TextField } from 'tosslib';
 import { useSavingsCalculatorForm } from 'hooks/useSavingsCalculatorForm';
-import { useSavingsProducts } from 'hooks/useSavingsProducts';
-import { useProductSelection } from 'hooks/useProductSelection';
 import { ErrorBoundary } from 'components/ErrorBoundary';
-import { SavingsProductRow } from 'components/SavingsProductRow';
-import type { SavingsProduct } from 'types/product';
+import SavingsProductContent from 'components/SavingsProductContent';
 
 export function SavingsCalculatorPage() {
-  const { monthly, term, goalDisplay, monthlyDisplay, onGoalChange, onMonthlyChange, onTermChange } =
+  const { goal, monthly, term, goalDisplay, monthlyDisplay, onGoalChange, onMonthlyChange, onTermChange } =
     useSavingsCalculatorForm();
   const [activeTab, setActiveTab] = useState<'products' | 'results'>('products');
 
@@ -58,50 +55,9 @@ export function SavingsCalculatorPage() {
         fallback={<ListRow contents={<ListRow.Texts type="1RowTypeA" top="상품 정보를 불러오지 못했습니다." />} />}
       >
         <Suspense fallback={<ListRow contents={<ListRow.Texts type="1RowTypeA" top="불러오는 중…" />} />}>
-          <FilteredProductList activeTab={activeTab} monthly={monthly} term={term} />
+          <SavingsProductContent activeTab={activeTab} goal={goal} monthly={monthly} term={term} />
         </Suspense>
       </ErrorBoundary>
-    </>
-  );
-}
-
-function FilteredProductList({
-  activeTab,
-  monthly,
-  term,
-}: {
-  activeTab: 'products' | 'results';
-  monthly: number;
-  term: number;
-}) {
-  const { data: products } = useSavingsProducts();
-  const { selectedId, filtered, toggleProduct } = useProductSelection(products, monthly, term);
-
-  if (activeTab === 'results') {
-    return <ListRow contents={<ListRow.Texts type="1RowTypeA" top="상품을 선택해주세요." />} />;
-  }
-
-  return <ProductList products={filtered} selectedId={selectedId} onToggleProduct={toggleProduct} />;
-}
-
-function ProductList({
-  products,
-  selectedId,
-  onToggleProduct,
-}: {
-  products: SavingsProduct[];
-  selectedId: string | null;
-  onToggleProduct: (id: string) => void;
-}) {
-  if (products.length === 0) {
-    return <ListRow contents={<ListRow.Texts type="1RowTypeA" top="조건에 맞는 적금 상품이 없습니다." />} />;
-  }
-
-  return (
-    <>
-      {products.map(p => (
-        <SavingsProductRow key={p.id} product={p} isSelected={selectedId === p.id} onToggleProduct={onToggleProduct} />
-      ))}
     </>
   );
 }
